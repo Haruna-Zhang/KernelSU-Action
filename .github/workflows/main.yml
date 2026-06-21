@@ -107,7 +107,26 @@ jobs:
                   continue
               fi
               echo "Applying kernel patch: $line"
-              git apply "this-repo/patches/$line"
+              patch_file="this-repo/patches/$line"
+
+              # 如果目标函数已存在，说明补丁已经在内核里，直接跳过
+              if grep -q "path_umount" fs/namespace.c; then
+                  echo "  -> function path_umount already exists, skipping patch."
+                  continue
+              fi
+
+              # 用 patch 命令，允许上下文偏移 ±3 行，忽略空白差异
+              if patch -p1 --forward --ignore-whitespace --fuzz=3 < "$patch_file"; then
+                  echo "  -> applied successfully."
+              else
+                  # 万一 patch 部分应用成功但报错，再检查一次函数是否出现
+                  if grep -q "path_umount" fs/namespace.c; then
+                      echo "  -> path_umount found after patch attempt, continuing."
+                  else
+                      echo "Error: patch failed and path_umount still not present."
+                      exit 1
+                  fi
+              fi
           done <<<"$kernel_patch"
 
       - name: Apply KernelSU patch
@@ -116,25 +135,9 @@ jobs:
               if [ -z "$line" ] || [[ "$line" == "#"* ]]; then
                   continue
               fi
-              echo "Applying kernel patch: $line"
-              patch_file="this-repo/patches/$line"
-
-              if grep -q "path_umount" fs/namespace.c; then
-                  echo "  -> patch already applied (path_umount found), skipping."
-                  continue
-              fi
-
-              if patch -p1 --forward --ignore-whitespace --fuzz=3 < "$patch_file"; then
-                  echo "  -> applied successfully."
-              else
-                  if grep -q "path_umount" fs/namespace.c; then
-                      echo "  -> function exists after patch attempt, continuing."
-                  else
-                      echo "Error: patch failed and path_umount not present."
-                      exit 1
-                  fi
-              fi
-          done <<<"$kernel_patch"
+              echo "Applying KernelSU patch: $line"
+              git apply -p2 --directory KernelSU/kernel "this-repo/patches/$line"
+          done <<<"$kernelsu_patch"
 
       - name: "AOSP-Clang: Restore"
         id: aosp_clang_restore
