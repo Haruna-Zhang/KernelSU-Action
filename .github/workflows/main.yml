@@ -1,12 +1,12 @@
 name: Check and Build
 
 env:
-  kernel_repository: PixelExperience-Devices/kernel_xiaomi_sdm845
-  kernel_branch: fourteen
-  device: dipper
-  clang_version: r487747c
+  kernel_repository: justinlin099/android_kernel_sony_msm8998
+  kernel_branch: lineage-22.1
+  device: lineage-msm8998-yoshino-maple_dsds
+  clang_version: r365631c
   defconfig: |
-    dipper_defconfig
+    lineage-msm8998-yoshino-maple_dsds_defconfig
   kernel_patch: |
     backport-path-umount.patch
   kernelsu_patch: |
