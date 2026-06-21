@@ -5,11 +5,9 @@ env:
   kernel_branch: lineage-22.1
   device: lineage-msm8998-yoshino-maple_dsds
   clang_version: r365631c
-  defconfig: |
-    lineage-msm8998-yoshino-maple_dsds_defconfig
-  kernel_patch: |
-    backport-path-umount.patch
-  kernelsu_patch: |
+  defconfig: lineage-msm8998-yoshino-maple_dsds_defconfig
+  kernel_patch: backport-path-umount.patch
+  kernelsu_patch: ""
 
 on:
   workflow_dispatch:
@@ -118,9 +116,25 @@ jobs:
               if [ -z "$line" ] || [[ "$line" == "#"* ]]; then
                   continue
               fi
-              echo "Applying KernelSU patch: $line"
-              git apply -p2 --directory KernelSU/kernel "this-repo/patches/$line"
-          done <<<"$kernelsu_patch"
+              echo "Applying kernel patch: $line"
+              patch_file="this-repo/patches/$line"
+
+              if grep -q "path_umount" fs/namespace.c; then
+                  echo "  -> patch already applied (path_umount found), skipping."
+                  continue
+              fi
+
+              if patch -p1 --forward --ignore-whitespace --fuzz=3 < "$patch_file"; then
+                  echo "  -> applied successfully."
+              else
+                  if grep -q "path_umount" fs/namespace.c; then
+                      echo "  -> function exists after patch attempt, continuing."
+                  else
+                      echo "Error: patch failed and path_umount not present."
+                      exit 1
+                  fi
+              fi
+          done <<<"$kernel_patch"
 
       - name: "AOSP-Clang: Restore"
         id: aosp_clang_restore
